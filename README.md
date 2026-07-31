@@ -66,35 +66,35 @@ src/main/java/com/ofertas/agregador/
 * PostgreSQL em execução
 * Credenciais de API (Telegram Bot Token, Shopee AppID/Secret, etc.)
 
-### 2. Variáveis de Ambiente (application.properties)
+## 2. Variáveis de Ambiente (application.properties)
 
-# Banco de Dados
+### Banco de Dados
 spring.datasource.url=jdbc:postgresql://localhost:5432/agregador_db
 spring.datasource.username=postgres
 spring.datasource.password=sua_senha
 
-# Agendadores (Jobs)
+### Agendadores (Jobs)
 scanner.fixed-delay-ms=900000      # 15 minutos
 dispatcher.fixed-delay-ms=300000   # 5 minutos
 
-# Telegram Bot
+### Telegram Bot
 telegram.bot.token=${TELEGRAM_BOT_TOKEN}
 
-# Shopee Affiliate GraphQL
+### Shopee Affiliate GraphQL
 shopee.app-id=${SHOPEE_APP_ID}
 shopee.secret=${SHOPEE_SECRET}
 
-# Mercado Livre API
+## Mercado Livre API
 mercadolivre.access-token=${ML_ACCESS_TOKEN}
 mercadolivre.tracked-item-ids=MLB1234567,MLB9876543
 mercadolivre.affiliate-query-params=matt_word=SEUCODIGO
 
-### 3. Executando a Aplicação
+## 3. Executando a Aplicação
 
-# Compilar e gerar o JAR
+### Compilar e gerar o JAR
 ./mvnw clean package
 
-# Executar a aplicação
+### Executar a aplicação
 ./mvnw spring-boot:run
 
 ---
