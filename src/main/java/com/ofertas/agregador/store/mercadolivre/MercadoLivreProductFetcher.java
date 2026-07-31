@@ -13,17 +13,16 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Busca preço/título/imagem de produtos específicos do Mercado Livre via
  * {@code GET /items/{id}}.
  *
- * DECISÃO DE DESIGN: não usamos o endpoint de busca (/sites/MLB/search) porque
- * o Mercado Livre passou a bloquear esse endpoint recentemente (múltiplos relatos
- * de 403 Forbidden mesmo com autenticação correta). Por isso este fetcher
- * ACOMPANHA uma lista de IDs configurados (mercadolivre.tracked-item-ids) em vez
- * de descobrir produtos sozinho — a descoberta de quais produtos divulgar
- * continua sendo uma decisão manual/editorial, não automatizada.
+ * A lista de itens rastreados e seus links de afiliado vêm do banco
+ * (tabela mercadolivre_tracked_item, via MercadoLivreTrackedItemRepository) —
+ * não mais do application.properties. Isso permite adicionar/remover produto
+ * com um INSERT/UPDATE direto no banco, sem reiniciar a aplicação.
  */
 @Component
 public class MercadoLivreProductFetcher implements ProductFetcher {
@@ -33,43 +32,51 @@ public class MercadoLivreProductFetcher implements ProductFetcher {
 
     private final WebClient webClient;
     private final MercadoLivreProperties properties;
+    private final MercadoLivreTrackedItemRepository trackedItemRepository;
 
-    public MercadoLivreProductFetcher(MercadoLivreProperties properties) {
+    public MercadoLivreProductFetcher(MercadoLivreProperties properties,
+                                       MercadoLivreTrackedItemRepository trackedItemRepository) {
         this.properties = properties;
+        this.trackedItemRepository = trackedItemRepository;
         this.webClient = WebClient.builder()
                 .baseUrl(properties.getApiBaseUrl())
+                .defaultHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build();
     }
 
     @Override
     public List<StoreProduct> fetchOffers() {
+        List<MercadoLivreTrackedItem> trackedItems = trackedItemRepository.findByActiveTrue();
         List<StoreProduct> offers = new ArrayList<>();
 
-        for (String itemId : properties.getTrackedItemIds()) {
-            fetchSingleItem(itemId).ifPresent(offers::add);
+        for (MercadoLivreTrackedItem trackedItem : trackedItems) {
+            fetchSingleItem(trackedItem).ifPresent(offers::add);
         }
 
         return offers;
     }
 
-    private java.util.Optional<StoreProduct> fetchSingleItem(String itemId) {
+    private Optional<StoreProduct> fetchSingleItem(MercadoLivreTrackedItem trackedItem) {
+        String itemId = trackedItem.getItemId();
         try {
             MercadoLivreItemResponse item = webClient.get()
                     .uri("/items/{id}", itemId)
-                    .headers(headers -> addAuthIfPresent(headers))
+                    .headers(this::addAuthIfPresent)
                     .retrieve()
                     .bodyToMono(MercadoLivreItemResponse.class)
                     .block(REQUEST_TIMEOUT);
 
             if (item == null) {
                 log.warn("Resposta vazia do Mercado Livre para item {}", itemId);
-                return java.util.Optional.empty();
+                return Optional.empty();
             }
 
-            return java.util.Optional.of(new StoreProduct(
+            // Usa o link de afiliado já gerado no Gerador de Produtos Recomendados
+            // (guardado no banco) — não tentamos reconstruir via fórmula.
+            return Optional.of(new StoreProduct(
                     item.id(),
                     item.title(),
-                    item.permalink(),
+                    trackedItem.getAffiliateUrl(),
                     item.thumbnail(),
                     item.price(),
                     item.original_price(),
@@ -80,15 +87,15 @@ public class MercadoLivreProductFetcher implements ProductFetcher {
 
         } catch (WebClientResponseException.NotFound ex) {
             log.warn("Item {} não encontrado no Mercado Livre (removido/expirado?)", itemId);
-            return java.util.Optional.empty();
+            return Optional.empty();
 
         } catch (WebClientResponseException.Forbidden ex) {
             log.error("403 ao buscar item {} no Mercado Livre — verifique se o token ainda é válido ou se a política da API mudou novamente", itemId);
-            return java.util.Optional.empty();
+            return Optional.empty();
 
         } catch (Exception ex) {
             log.error("Erro inesperado ao buscar item {} no Mercado Livre", itemId, ex);
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
     }
 

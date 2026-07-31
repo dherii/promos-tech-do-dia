@@ -1,6 +1,7 @@
 package com.ofertas.agregador.store.shopee;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+// 1. IMPORT CORRIGIDO! 
+import tools.jackson.databind.ObjectMapper;
 import com.ofertas.agregador.domain.enums.StoreType;
 import com.ofertas.agregador.store.contract.ProductFetcher;
 import com.ofertas.agregador.store.contract.StoreProduct;
@@ -50,10 +51,10 @@ public class ShopeeProductFetcher implements ProductFetcher {
                     nodes {
                       itemId
                       shopId
-                      name
+                      productName
                       imageUrl
-                      price
-                      discountPct
+                      priceMin
+                      priceDiscountRate
                       productLink
                       offerLink
                     }
@@ -63,8 +64,6 @@ public class ShopeeProductFetcher implements ProductFetcher {
 
         String payload;
         try {
-            // Serializa via Jackson em vez de concatenar strings manualmente —
-            // evita quebrar o JSON se a query mudar e ganhar aspas/caracteres especiais.
             payload = objectMapper.writeValueAsString(Map.of("query", query, "variables", Map.of("page", 1)));
         } catch (Exception ex) {
             log.error("Falha ao serializar payload GraphQL da Shopee", ex);
@@ -75,6 +74,7 @@ public class ShopeeProductFetcher implements ProductFetcher {
             String authHeader = ShopeeSignatureUtil.buildAuthorizationHeader(
                     properties.getAppId(), properties.getSecret(), payload);
 
+            // 2. CHAMADA LIMPA RESTAURADA! (O Spring converte o JSON automaticamente)
             ShopeeGraphQLResponse response = webClient.post()
                     .header("Authorization", authHeader)
                     .header("Content-Type", "application/json")
@@ -106,13 +106,13 @@ public class ShopeeProductFetcher implements ProductFetcher {
             try {
                 offers.add(new StoreProduct(
                         node.itemId(),
-                        node.name(),
-                        node.offerLink(), // já vem com tracking de afiliado embutido
+                        node.productName(), // 3. NOMES DOS CAMPOS CORRIGIDOS AQUI
+                        node.offerLink(), 
                         node.imageUrl(),
-                        node.price(),
-                        deriveListPrice(node.price(), node.discountPct()),
-                        null, // productOfferV2 não retorna categoria nesta consulta
-                        null, // Shopee não expõe cupom por item nesta API
+                        node.priceMin(),
+                        deriveListPrice(node.priceMin(), node.priceDiscountRate()),
+                        null, 
+                        null, 
                         null
                 ));
             } catch (Exception ex) {
@@ -124,14 +124,14 @@ public class ShopeeProductFetcher implements ProductFetcher {
 
     /**
      * A API retorna preço atual + percentual de desconto, mas não o preço de
-     * lista diretamente — derivamos aqui. Se discountPct vier nulo/zero,
+     * lista diretamente — derivamos aqui. Se priceDiscountRate vier nulo/zero,
      * listPrice fica igual ao currentPrice (sem desconto detectável).
      */
-    private BigDecimal deriveListPrice(BigDecimal price, BigDecimal discountPct) {
-        if (price == null || discountPct == null || discountPct.compareTo(BigDecimal.ZERO) <= 0) {
+    private BigDecimal deriveListPrice(BigDecimal price, BigDecimal discountRate) {
+        if (price == null || discountRate == null || discountRate.compareTo(BigDecimal.ZERO) <= 0) {
             return price;
         }
-        BigDecimal factor = BigDecimal.ONE.subtract(discountPct.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP));
+        BigDecimal factor = BigDecimal.ONE.subtract(discountRate.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP));
         if (factor.compareTo(BigDecimal.ZERO) <= 0) {
             return price;
         }

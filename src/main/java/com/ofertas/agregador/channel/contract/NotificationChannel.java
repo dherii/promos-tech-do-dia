@@ -1,4 +1,4 @@
-package com.ofertas.agregador.channel;
+package com.ofertas.agregador.channel.contract;
 
 import com.ofertas.agregador.store.contract.StoreProduct;
 import com.ofertas.agregador.domain.enums.ChannelType;

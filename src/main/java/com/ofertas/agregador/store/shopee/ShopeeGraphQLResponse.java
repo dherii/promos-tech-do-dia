@@ -24,15 +24,14 @@ record ShopeeGraphQLResponse(Data data) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Node(
+    public record Node(
             String itemId,
-            String shopId,
-            String name,
+            Long shopId,
+            String productName,      // Era 'name'
             String imageUrl,
-            BigDecimal price,
-            BigDecimal discountPct,
+            BigDecimal priceMin,     // Era 'price'
+            BigDecimal priceDiscountRate, // Era 'discountPct'
             String productLink,
             String offerLink
-    ) {
-    }
+    ) {}
 }

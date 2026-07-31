@@ -1,7 +1,7 @@
 package com.ofertas.agregador.channel.telegram;
 
+import com.ofertas.agregador.channel.contract.NotificationChannel;
 import com.ofertas.agregador.config.TelegramProperties;
-import com.ofertas.agregador.channel.NotificationChannel;
 import com.ofertas.agregador.store.contract.StoreProduct;
 import com.ofertas.agregador.domain.enums.ChannelType;
 import com.ofertas.agregador.domain.enums.DispatchStatus;

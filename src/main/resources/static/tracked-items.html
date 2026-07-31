@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Itens Rastreados - Mercado Livre</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+  h1 { font-size: 1.4rem; }
+  form { display: flex; flex-direction: column; gap: 8px; background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+  label { font-size: 0.85rem; font-weight: 600; }
+  input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95rem; }
+  button { padding: 10px; border: none; border-radius: 4px; background: #2f855a; color: white; font-weight: 600; cursor: pointer; }
+  button:hover { background: #276749; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+  .active { color: #2f855a; font-weight: 600; }
+  .inactive { color: #a0a0a0; }
+  .link-cell { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-actions button { padding: 4px 8px; font-size: 0.8rem; margin-right: 4px; }
+  .btn-secondary { background: #718096; }
+  .btn-danger { background: #c53030; }
+  #status { font-size: 0.85rem; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Itens Rastreados — Mercado Livre</h1>
+
+<form id="form-add">
+  <label for="itemId">ID do produto (ex: MLB1234567890)</label>
+  <input type="text" id="itemId" required placeholder="MLB1234567890">
+
+  <label for="affiliateUrl">Link de afiliado (do Gerador de Produtos Recomendados)</label>
+  <input type="text" id="affiliateUrl" required placeholder="https://www.mercadolivre.com.br/social/...">
+
+  <button type="submit">Salvar</button>
+  <div id="status"></div>
+</form>
+
+<table>
+  <thead>
+    <tr><th>Item</th><th>Link</th><th>Status</th><th>Ações</th></tr>
+  </thead>
+  <tbody id="items-body">
+    <tr><td colspan="4">Carregando...</td></tr>
+  </tbody>
+</table>
+
+<script>
+const API = '/api/mercadolivre/tracked-items';
+
+async function loadItems() {
+  const res = await fetch(API);
+  const items = await res.json();
+  const body = document.getElementById('items-body');
+
+  if (items.length === 0) {
+    body.innerHTML = '<tr><td colspan="4">Nenhum item cadastrado ainda.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = items.map(item => `
+    <tr>
+      <td>${escapeHtml(item.itemId)}</td>
+      <td class="link-cell" title="${escapeHtml(item.affiliateUrl)}">${escapeHtml(item.affiliateUrl)}</td>
+      <td class="${item.active ? 'active' : 'inactive'}">${item.active ? 'Ativo' : 'Inativo'}</td>
+      <td class="row-actions">
+        <button class="btn-secondary" onclick="toggleActive('${item.itemId}')">${item.active ? 'Desativar' : 'Ativar'}</button>
+        <button class="btn-danger" onclick="removeItem('${item.itemId}')">Remover</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+document.getElementById('form-add').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const itemId = document.getElementById('itemId').value.trim();
+  const affiliateUrl = document.getElementById('affiliateUrl').value.trim();
+  const statusEl = document.getElementById('status');
+
+  const res = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ itemId, affiliateUrl })
+  });
+
+  if (res.ok) {
+    statusEl.textContent = 'Salvo com sucesso.';
+    statusEl.style.color = '#2f855a';
+    document.getElementById('form-add').reset();
+    loadItems();
+  } else {
+    const errorText = await res.text();
+    statusEl.textContent = 'Erro: ' + errorText;
+    statusEl.style.color = '#c53030';
+  }
+});
+
+async function toggleActive(itemId) {
+  await fetch(`${API}/${itemId}/toggle-active`, { method: 'PATCH' });
+  loadItems();
+}
+
+async function removeItem(itemId) {
+  if (!confirm(`Remover ${itemId} da lista de rastreados?`)) return;
+  await fetch(`${API}/${itemId}`, { method: 'DELETE' });
+  loadItems();
+}
+
+loadItems();
+</script>
+
+</body>
+</html>
