@@ -33,11 +33,14 @@ public class MercadoLivreProductFetcher implements ProductFetcher {
     private final WebClient webClient;
     private final MercadoLivreProperties properties;
     private final MercadoLivreTrackedItemRepository trackedItemRepository;
+    private final MercadoLivreTokenService tokenService;
 
     public MercadoLivreProductFetcher(MercadoLivreProperties properties,
-                                       MercadoLivreTrackedItemRepository trackedItemRepository) {
+            MercadoLivreTrackedItemRepository trackedItemRepository,
+            MercadoLivreTokenService tokenService) {
         this.properties = properties;
         this.trackedItemRepository = trackedItemRepository;
+        this.tokenService = tokenService; // novo campo private final
         this.webClient = WebClient.builder()
                 .baseUrl(properties.getApiBaseUrl())
                 .defaultHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
@@ -81,18 +84,17 @@ public class MercadoLivreProductFetcher implements ProductFetcher {
                     item.price(),
                     item.original_price(),
                     item.category_id(),
-                    null,  // Mercado Livre não expõe cupom no endpoint /items/{id}
-                    null
-            ));
+                    null, // Mercado Livre não expõe cupom no endpoint /items/{id}
+                    null));
 
         } catch (WebClientResponseException.NotFound ex) {
             log.warn("Item {} não encontrado no Mercado Livre (removido/expirado?)", itemId);
             return Optional.empty();
 
         } catch (WebClientResponseException.Forbidden ex) {
-            log.error("403 ao buscar item {} no Mercado Livre — verifique se o token ainda é válido ou se a política da API mudou novamente", itemId);
+            log.error("403 ao buscar item {} no Mercado Livre. Corpo da resposta: {}",
+                    itemId, ex.getResponseBodyAsString());
             return Optional.empty();
-
         } catch (Exception ex) {
             log.error("Erro inesperado ao buscar item {} no Mercado Livre", itemId, ex);
             return Optional.empty();
@@ -100,8 +102,12 @@ public class MercadoLivreProductFetcher implements ProductFetcher {
     }
 
     private void addAuthIfPresent(HttpHeaders headers) {
-        if (properties.getAccessToken() != null && !properties.getAccessToken().isBlank()) {
-            headers.setBearerAuth(properties.getAccessToken());
+        String token = tokenService.getValidAccessToken();
+        if (token != null && !token.isBlank()) {
+            headers.setBearerAuth(token);
+        } else {
+            log.warn("Sem access_token do Mercado Livre — requisição anônima, provavelmente 403. " +
+                    "Acesse http://localhost:8080/api/mercadolivre/oauth/authorize para autorizar.");
         }
     }
 

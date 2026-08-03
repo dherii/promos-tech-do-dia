@@ -106,7 +106,7 @@ public class ShopeeProductFetcher implements ProductFetcher {
             try {
                 offers.add(new StoreProduct(
                         node.itemId(),
-                        node.productName(), // 3. NOMES DOS CAMPOS CORRIGIDOS AQUI
+                        node.productName(),
                         node.offerLink(), 
                         node.imageUrl(),
                         node.priceMin(),
