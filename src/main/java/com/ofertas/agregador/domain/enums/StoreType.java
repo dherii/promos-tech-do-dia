@@ -10,5 +10,6 @@ public enum StoreType {
     AMAZON,
     MERCADO_LIVRE,
     MAGALU,
-    KABUM
+    KABUM,
+    ALIEXPRESS
 }
