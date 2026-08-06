@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -51,12 +50,11 @@ public class AliexpressProductFetcher implements ProductFetcher {
         params.put("sign", sign);
 
         try {
-            // Constrói a URL com todos os parâmetros encadeados
-            UriComponentsBuilder uriBuilder = UriComponentsBuilder.fromPath("");
-            params.forEach(uriBuilder::queryParam);
-
             AliexpressResponse response = webClient.post()
-                    .uri(uriBuilder.build().toUriString())
+                    .uri(uriBuilder -> {
+                        params.forEach(uriBuilder::queryParam);
+                        return uriBuilder.build();
+                    })
                     .retrieve()
                     .bodyToMono(AliexpressResponse.class)
                     .block();
@@ -71,15 +69,18 @@ public class AliexpressProductFetcher implements ProductFetcher {
 
     private List<StoreProduct> mapNodes(AliexpressResponse response) {
         List<StoreProduct> offers = new ArrayList<>();
-        
+
         try {
-            if (response == null || response.aliexpress_affiliate_product_query_response() == null) return offers;
-            
+            if (response == null || response.aliexpress_affiliate_product_query_response() == null)
+                return offers;
+
             var result = response.aliexpress_affiliate_product_query_response().resp_result();
-            if (result == null || result.resp_code() != 200 || result.result() == null) return offers;
-            
+            if (result == null || result.resp_code() != 200 || result.result() == null)
+                return offers;
+
             var productsList = result.result().products().product();
-            if (productsList == null) return offers;
+            if (productsList == null)
+                return offers;
 
             for (AliexpressResponse.Product node : productsList) {
                 offers.add(new StoreProduct(
@@ -91,13 +92,12 @@ public class AliexpressProductFetcher implements ProductFetcher {
                         node.target_original_price(),
                         null,
                         null,
-                        null
-                ));
+                        null));
             }
         } catch (Exception ex) {
             log.error("Erro ao mapear produtos do AliExpress", ex);
         }
-        
+
         return offers;
     }
 

@@ -22,7 +22,7 @@ public class Product {
     @Column(name = "external_id", nullable = false, length = 150)
     private String externalId;
 
-    @Column(name = "title", nullable = false, length = 500)
+    @Column(name = "title", nullable = false, columnDefinition = "TEXT")
     private String title;
 
     @Column(name = "original_url", nullable = false, columnDefinition = "TEXT")
